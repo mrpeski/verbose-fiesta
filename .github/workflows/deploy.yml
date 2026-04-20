@@ -1,0 +1,91 @@
+name: Deploy Alex
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (e.g. dev, prod)"
+        required: true
+        default: dev
+
+permissions:
+  id-token: write          # needed for OIDC auth to AWS (optional if you use static keys)
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install project dependencies (root)
+        run: uv sync --all-extras
+
+      - name: Configure AWS credentials (static keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      #--- Deploy each Terraform module -------------------------------------------------
+      - name: Terraform Init & Apply – SageMaker
+        working-directory: ./terraform/2_sagemaker
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      - name: Terraform Init & Apply – Ingestion
+        working-directory: ./terraform/3_ingestion
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      - name: Terraform Init & Apply – Researcher
+        working-directory: ./terraform/4_researcher
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      - name: Terraform Init & Apply – Database
+        working-directory: ./terraform/5_database
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      - name: Terraform Init & Apply – Agents
+        working-directory: ./terraform/6_agents
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      - name: Terraform Init & Apply – Frontend
+        working-directory: ./terraform/7_frontend
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      - name: Terraform Init & Apply – Enterprise
+        working-directory: ./terraform/8_enterprise
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      #--- Optional: Run post‑deployment script ----------------------------------------
+      - name: Run front‑end deployment script
+        run: |
+          uv run scripts/deploy.py
+
