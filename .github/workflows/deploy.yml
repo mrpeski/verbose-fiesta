@@ -9,7 +9,7 @@ on:
         default: dev
 
 permissions:
-  id-token: write          # needed for OIDC auth to AWS (optional if you use static keys)
+  id-token: write
   contents: read
 
 jobs:
@@ -31,8 +31,8 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Install project dependencies (root)
-        run: uv sync --all-extras
+      # Removed: uv sync --all-extras (no root pyproject.toml exists)
+      # Each component has its own uv project
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -70,20 +70,6 @@ jobs:
           terraform init -input=false
           terraform apply -auto-approve -input=false
 
-      - name: Terraform Init & Apply – Frontend
-        working-directory: ./terraform/7_frontend
-        run: |
-          terraform init -input=false
-          terraform apply -auto-approve -input=false
-
-      - name: Terraform Init & Apply – Enterprise
-        working-directory: ./terraform/8_enterprise
-        run: |
-          terraform init -input=false
-          terraform apply -auto-approve -input=false
-
-      #--- Optional: Run post‑deployment script ----------------------------------------
       - name: Run front‑end deployment script
         run: |
           uv run scripts/deploy.py
-
