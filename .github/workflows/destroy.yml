@@ -1,88 +1,56 @@
 name: Destroy Alex
-
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Target environment (e.g., dev, prod)"
+        description: "Target environment (e.g. dev, prod)"
         required: true
         default: dev
-
+      confirm:
+        description: "Type 'destroy' to confirm"
+        required: true
 permissions:
-  id-token: write          # needed for OIDC auth to AWS
+  id-token: write
   contents: read
-
 jobs:
   destroy:
     runs-on: ubuntu-latest
+    if: inputs.confirm == 'destroy'
     environment: ${{ inputs.environment }}
-
+    env:
+      TF_VAR_aws_region: ${{ secrets.AWS_DEFAULT_REGION }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Install project dependencies (root)
-        run: uv sync --all-extras
-
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
-      #--- Destroy in reverse order -------------------------------------------------
-      - name: Terraform Destroy – Enterprise
-        working-directory: ./terraform/8_enterprise
-        run: |
-          terraform init -input=false
-          terraform destroy -auto-approve -input=false
-
-      - name: Terraform Destroy – Frontend
-        working-directory: ./terraform/7_frontend
-        run: |
-          terraform init -input=false
-          terraform destroy -auto-approve -input=false
-
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
       - name: Terraform Destroy – Agents
         working-directory: ./terraform/6_agents
         run: |
           terraform init -input=false
           terraform destroy -auto-approve -input=false
-
       - name: Terraform Destroy – Database
         working-directory: ./terraform/5_database
         run: |
           terraform init -input=false
           terraform destroy -auto-approve -input=false
-
       - name: Terraform Destroy – Researcher
         working-directory: ./terraform/4_researcher
         run: |
           terraform init -input=false
           terraform destroy -auto-approve -input=false
-
       - name: Terraform Destroy – Ingestion
         working-directory: ./terraform/3_ingestion
         run: |
           terraform init -input=false
           terraform destroy -auto-approve -input=false
-
       - name: Terraform Destroy – SageMaker
         working-directory: ./terraform/2_sagemaker
         run: |
           terraform init -input=false
           terraform destroy -auto-approve -input=false
-
-      - name: Optional cleanup script
-        run: |
-          uv run scripts/destroy.py
