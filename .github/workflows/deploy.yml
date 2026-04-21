@@ -34,13 +34,12 @@ jobs:
       - name: Install project dependencies (root)
         run: uv sync --all-extras
 
-- name: Configure AWS credentials via OIDC
+      - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      #--- Deploy each Terraform module -------------------------------------------------
       - name: Terraform Init & Apply – SageMaker
         working-directory: ./terraform/2_sagemaker
         run: |
